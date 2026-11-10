@@ -31,8 +31,8 @@
     </header>
 
     <nav class="tabs" id="tabs" aria-label="Shelves">
+      <button data-status="want">TBR <span class="count"></span></button>
       <button data-status="reading">Reading <span class="count"></span></button>
-      <button data-status="want">Want to read <span class="count"></span></button>
       <button data-status="finished">Finished <span class="count"></span></button>
       <button data-status="dnf">DNF <span class="count"></span></button>
     </nav>
@@ -76,7 +76,7 @@
         <section class="group">
           <h3 class="group-title">Tracking</h3>
           <div class="seg" id="statusSeg" role="radiogroup" aria-label="Status">
-            <label><input type="radio" name="status" value="want"><span>Want</span></label>
+            <label><input type="radio" name="status" value="want"><span>TBR</span></label>
             <label><input type="radio" name="status" value="reading"><span>Reading</span></label>
             <label><input type="radio" name="status" value="finished"><span>Finished</span></label>
             <label><input type="radio" name="status" value="dnf"><span>DNF</span></label>

@@ -2,9 +2,8 @@
 
 /* ---------- Helpers ---------- */
 const STORE_KEY = 'shelf.books.v1';
-const TAB_KEY = 'shelf.tab';
 const GKEY_KEY = 'shelf.googleKey';
-const STATUS_LABELS = { reading: 'Reading', want: 'Want to read', finished: 'Finished', dnf: 'Did not finish' };
+const STATUS_LABELS = { reading: 'Reading', want: 'TBR', finished: 'Finished', dnf: 'Did not finish' };
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -68,8 +67,7 @@ document.addEventListener('error', (e) => {
 }, true);
 
 /* ---------- Library view ---------- */
-let tab = safeStorage.get(TAB_KEY) || 'reading';
-if (!STATUS_LABELS[tab]) tab = 'reading';
+let tab = 'reading'; // always open on Reading
 
 function sortFor(status) {
   const t = (s) => (s ? Date.parse(s) || 0 : 0);
@@ -101,7 +99,7 @@ function cardHTML(b) {
 
 const EMPTY = {
   reading: 'Nothing on the nightstand.',
-  want: 'Your to-read list is empty.',
+  want: 'Your TBR is empty.',
   finished: 'No finished books yet.',
   dnf: 'No abandoned books. Nice.',
 };
@@ -142,7 +140,6 @@ $('#tabs').addEventListener('click', (e) => {
   const btn = e.target.closest('button[data-status]');
   if (!btn) return;
   tab = btn.dataset.status;
-  safeStorage.set(TAB_KEY, tab);
   render();
   window.scrollTo({ top: 0 });
 });
@@ -461,7 +458,6 @@ form.addEventListener('submit', (e) => {
   $('#bookDialog').close();
   if ($('#searchDialog').open) $('#searchDialog').close();
   tab = status;
-  safeStorage.set(TAB_KEY, tab);
   render();
   toast(existing ? 'Saved' : `Added to ${STATUS_LABELS[status]}`);
 });
