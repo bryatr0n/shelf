@@ -1,6 +1,6 @@
 // Offline support: the app shell is served network-first, falling back to the cache,
 // so updates show up right away when online and the app still opens offline.
-const CACHE = 'shelf-v2';
+const CACHE = 'shelf-v3';
 const SHELL = [
   './', './index.html', './styles.css', './app.js', './sync.js', './config.js', './manifest.webmanifest',
   './icons/icon.svg', './icons/icon-180.png', './icons/icon-192.png', './icons/icon-512.png',
@@ -23,7 +23,7 @@ self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
   e.respondWith(
-    fetch(req)
+    fetch(req, { cache: 'no-cache' }) // revalidate with the server so updates show up immediately
       .then((res) => {
         if (res.ok) {
           const copy = res.clone();

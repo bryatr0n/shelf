@@ -121,7 +121,7 @@
 
   let timer;
   function schedule(ms = 1500) {
-    if (!configured || !session) return;
+    if (!configured || !getJSON(K.session, null)) return;
     clearTimeout(timer);
     timer = setTimeout(syncNow, ms);
   }
@@ -151,6 +151,7 @@
   let again = false;
 
   async function syncNow() {
+    session = getJSON(K.session, null); // another tab may have signed in or out
     if (!configured || !session) return;
     if (!navigator.onLine) { setStatus('offline'); return; }
     if (running) { again = true; return; }
@@ -227,6 +228,7 @@
   }
 
   function renderBox() {
+    session = getJSON(K.session, null);
     const box = $('#syncBox');
     if (!configured) {
       box.innerHTML = '<p class="hint left">Sync isn’t set up yet.</p>';
