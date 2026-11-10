@@ -615,12 +615,21 @@ $('#menuBtn').addEventListener('click', openMenu);
 $$('dialog').forEach((dlg) => {
   dlg.addEventListener('click', (e) => {
     if (e.target.closest('[data-close]')) { e.preventDefault(); dlg.close(); return; }
-    // Click on the backdrop closes the dialog (desktop).
+    // Click on the backdrop closes the dialog. While typing, it only dismisses the
+    // keyboard instead, so a stray tap can't throw away what was entered.
     if (e.target === dlg) {
       const r = dlg.getBoundingClientRect();
       const inside = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
-      if (!inside) dlg.close();
+      if (inside) return;
+      if (dlg._wasTyping) dlg._wasTyping = false; // first tap just closed the keyboard
+      else dlg.close();
     }
+  });
+  // Record focus state when the finger touches down: by the time "click" fires,
+  // the browser has already moved focus off the input.
+  dlg.addEventListener('pointerdown', (e) => {
+    const active = document.activeElement;
+    dlg._wasTyping = e.target === dlg && Boolean(active && dlg.contains(active) && active.matches('input, textarea'));
   });
 });
 
