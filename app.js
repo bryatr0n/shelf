@@ -165,6 +165,205 @@ $('#list').addEventListener('keydown', (e) => {
   }
 });
 
+/* ---------- Reading sessions ---------- */
+// Each page update is a session { at, d, from, to }. An update within 15 minutes of the
+// previous one on the same book (e.g. fixing a typo) adjusts that session instead.
+const SESSION_MERGE_MS = 15 * 60 * 1000;
+function logSession(b, from, to) {
+  if (from === to) return;
+  delete b.progressLog; // replaced by sessions
+  const now = new Date();
+  const today = localToday();
+  b.sessions = b.sessions || [];
+  const last = b.sessions[b.sessions.length - 1];
+  if (last && last.d === today && now - Date.parse(last.at) < SESSION_MERGE_MS) {
+    last.to = to;
+    last.at = now.toISOString();
+    if (last.from === last.to) b.sessions.pop();
+    return;
+  }
+  b.sessions.push({ at: now.toISOString(), d: today, from, to });
+}
+
+/* ---------- Stats ---------- */
+const parseDay = (d) => { const [y, m, dd] = d.split('-').map(Number); return new Date(y, m - 1, dd); };
+function dayKey(date) {
+  const x = new Date(date);
+  x.setMinutes(x.getMinutes() - x.getTimezoneOffset());
+  return x.toISOString().slice(0, 10);
+}
+function addDays(d, n) { const x = parseDay(d); x.setDate(x.getDate() + n); return dayKey(x); }
+function fmtDay(d, opts = { weekday: 'short', month: 'short', day: 'numeric' }) {
+  const t = localToday();
+  if (d === t) return 'Today';
+  if (d === addDays(t, -1)) return 'Yesterday';
+  return parseDay(d).toLocaleDateString(undefined, opts);
+}
+const plural = (n, word) => `${n.toLocaleString()} ${word}${n === 1 ? '' : 's'}`;
+
+function allSessions() {
+  const out = [];
+  for (const b of books) {
+    for (const s of b.sessions || []) out.push({ ...s, pages: s.to - s.from, bookId: b.id, title: b.title });
+  }
+  return out.sort((a, b) => b.at.localeCompare(a.at));
+}
+
+function dayTotals(sessions) {
+  const m = new Map();
+  for (const s of sessions) {
+    const e = m.get(s.d) || { pages: 0, titles: new Set(), count: 0 };
+    e.pages += s.pages;
+    e.titles.add(s.title);
+    e.count++;
+    m.set(s.d, e);
+  }
+  for (const e of m.values()) e.pages = Math.max(0, e.pages); // corrections never go below zero
+  return m;
+}
+
+function niceMax(v) {
+  if (v <= 0) return 10;
+  const p = 10 ** Math.floor(Math.log10(v));
+  for (const f of [1, 2, 2.5, 5, 10]) if (f * p >= v) return f * p;
+  return 10 * p;
+}
+
+let statsView = 'days';
+const CHART_DAYS = 14;
+
+function tilesHTML(totals) {
+  const t = localToday();
+  const pagesOn = (d) => (totals.get(d) || {}).pages || 0;
+  let week = 0;
+  for (let i = 0; i < 7; i++) week += pagesOn(addDays(t, -i));
+  let sum30 = 0, days30 = 0;
+  for (let i = 0; i < 30; i++) { const p = pagesOn(addDays(t, -i)); if (p > 0) { sum30 += p; days30++; } }
+  // Streak: consecutive days with reading, ending today (or yesterday if today has none yet).
+  let d = pagesOn(t) > 0 ? t : addDays(t, -1);
+  let streak = 0;
+  while (pagesOn(d) > 0) { streak++; d = addDays(d, -1); }
+  const tile = (value, label) => `<div class="tile"><span class="tile-value">${value}</span><span class="tile-label">${label}</span></div>`;
+  return [
+    tile(pagesOn(t).toLocaleString(), 'pages today'),
+    tile(week.toLocaleString(), 'pages, last 7 days'),
+    tile(days30 ? Math.round(sum30 / days30).toLocaleString() : '–', 'avg per reading day (30d)'),
+    tile(streak, `day streak`),
+  ].join('');
+}
+
+function chartHTML(totals) {
+  const t = localToday();
+  const days = [];
+  for (let i = CHART_DAYS - 1; i >= 0; i--) {
+    const d = addDays(t, -i);
+    const e = totals.get(d);
+    days.push({ d, pages: e ? e.pages : 0, titles: e ? [...e.titles] : [] });
+  }
+  const total = days.reduce((n, x) => n + x.pages, 0);
+  const top = niceMax(Math.max(...days.map((x) => x.pages)));
+  const caption = `Last ${CHART_DAYS} days · ${plural(total, 'page')}`;
+  const bars = days.map((x) => {
+    const label = `${fmtDay(x.d)}: ${plural(x.pages, 'page')}${x.titles.length ? ` · ${x.titles.join(', ')}` : ''}`;
+    return `<button type="button" class="bar-col${x.d === t ? ' today' : ''}" data-label="${esc(label)}" aria-label="${esc(label)}">
+      <span class="bar" style="height:${(x.pages / top) * 100}%"></span>
+    </button>`;
+  }).join('');
+  const xl = days.map((x) => `<span class="${x.d === t ? 'today' : ''}">${parseDay(x.d).getDate()}</span>`).join('');
+  return `<figure class="chart">
+    <figcaption class="chart-head">
+      <span class="chart-title">Pages per day</span>
+      <span id="chartCaption" class="chart-caption" data-default="${esc(caption)}">${esc(caption)}</span>
+    </figcaption>
+    <div class="plot">
+      <span class="gridline" style="bottom:100%"><span>${top}</span></span>
+      <span class="gridline" style="bottom:50%"><span>${top / 2}</span></span>
+      <div class="bars">${bars}</div>
+    </div>
+    <div class="xlabels">${xl}</div>
+  </figure>`;
+}
+
+function daysListHTML(totals) {
+  const rows = [...totals.entries()].filter(([, e]) => e.pages > 0).sort((a, b) => b[0].localeCompare(a[0])).slice(0, 90);
+  if (!rows.length) return '';
+  return `<h3 class="section-title">Daily log</h3><div class="log">${rows.map(([d, e]) => `
+    <div class="log-row">
+      <div class="log-main">
+        <div class="log-title">${esc(fmtDay(d))}</div>
+        <div class="log-sub">${esc([...e.titles].join(', '))}${e.count > 1 ? ` · ${e.count} sessions` : ''}</div>
+      </div>
+      <div class="log-num">${plural(e.pages, 'page')}</div>
+    </div>`).join('')}</div>`;
+}
+
+function sessionsListHTML(sessions) {
+  return `<div class="log">${sessions.slice(0, 200).map((s) => {
+    const time = new Date(s.at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    const n = s.pages;
+    return `<div class="log-row">
+      <div class="log-main">
+        <div class="log-title">${esc(s.title)}</div>
+        <div class="log-sub">${esc(fmtDay(s.d))}, ${esc(time)} · p. ${s.from} → ${s.to}</div>
+      </div>
+      <div class="log-num">${n > 0 ? '+' : ''}${n.toLocaleString()}</div>
+      <button type="button" class="x-btn" data-del-session="${esc(s.bookId)}|${esc(s.at)}" aria-label="Delete this session">×</button>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function renderStats() {
+  const sessions = allSessions();
+  const totals = dayTotals(sessions);
+  $('#statTiles').innerHTML = tilesHTML(totals);
+  const body = $('#statsBody');
+  if (!sessions.length) {
+    body.innerHTML = '<p class="hint">No reading logged yet.<br>Tap <strong>Update</strong> on a book you’re reading to log pages.</p>';
+    return;
+  }
+  body.innerHTML = statsView === 'days'
+    ? chartHTML(totals) + daysListHTML(totals)
+    : sessionsListHTML(sessions);
+}
+
+function openStats() {
+  renderStats();
+  $('#statsDialog').showModal();
+  $('.form-body', $('#statsDialog')).scrollTop = 0;
+}
+
+$('#statsBtn').addEventListener('click', openStats);
+$('#statsDialog').addEventListener('change', (e) => {
+  if (e.target.name === 'statsView') { statsView = e.target.value; renderStats(); }
+});
+// Chart: show the value for the bar under the finger/cursor, or the focused one.
+function showBar(col) {
+  const cap = $('#chartCaption');
+  if (!cap) return;
+  $$('.bar-col.sel', $('#statsDialog')).forEach((c) => c.classList.toggle('sel', c === col));
+  if (col) col.classList.add('sel');
+  cap.textContent = col ? col.dataset.label : cap.dataset.default;
+}
+$('#statsBody').addEventListener('click', (e) => {
+  const col = e.target.closest('.bar-col');
+  if (col) { showBar(col.classList.contains('sel') ? null : col); return; }
+  const del = e.target.closest('[data-del-session]');
+  if (!del) return;
+  const [bookId, at] = del.dataset.delSession.split('|');
+  const b = books.find((x) => x.id === bookId);
+  if (!b || !confirm('Delete this session? Your current page stays the same.')) return;
+  b.sessions = (b.sessions || []).filter((s) => s.at !== at);
+  b.updatedAt = new Date().toISOString();
+  persist();
+  window.Sync?.changed(b.id);
+  renderStats();
+});
+$('#statsBody').addEventListener('pointerover', (e) => {
+  if (e.pointerType === 'mouse') showBar(e.target.closest('.bar-col'));
+});
+$('#statsBody').addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') showBar(null); }, true);
+$('#statsBody').addEventListener('focusin', (e) => { const c = e.target.closest('.bar-col'); if (c) showBar(c); });
+
 /* ---------- Quick progress update ---------- */
 const pgForm = $('#progressForm');
 let pgBook = null;
@@ -201,10 +400,8 @@ function saveProgress(finish) {
   if (page == null || page < 0) { pgForm.elements.page.focus(); return; }
   if (b.pages) page = Math.min(page, b.pages);
   const today = localToday();
+  logSession(b, b.progress || 0, page);
   b.progress = page;
-  // Keep one entry per day, for future reading stats.
-  b.progressLog = (b.progressLog || []).filter((x) => x.d !== today);
-  b.progressLog.push({ d: today, p: page });
   if (finish) {
     b.status = 'finished';
     b.finishedAt = b.finishedAt || today;
@@ -526,6 +723,11 @@ form.addEventListener('submit', (e) => {
   }
   if (status === 'want') { book.startedAt = null; book.finishedAt = null; book.progress = 0; }
   if (status === 'reading') book.finishedAt = null;
+
+  // Page changes on a book you were reading count as a reading session.
+  if (existing && prev === 'reading' && status !== 'want') {
+    logSession(book, existing.progress || 0, book.progress || 0);
+  }
 
   if (existing) Object.assign(existing, book);
   else books.push(book);

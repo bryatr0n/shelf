@@ -21,6 +21,9 @@
     <header class="top">
       <h1>Shelf</h1>
       <div class="top-actions">
+        <button id="statsBtn" class="icon-btn" aria-label="Reading stats" title="Reading stats">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="12" width="4" height="8" rx="1.2"/><rect x="10" y="5" width="4" height="15" rx="1.2"/><rect x="16" y="9" width="4" height="11" rx="1.2"/></svg>
+        </button>
         <button id="menuBtn" class="icon-btn" aria-label="Menu" title="Menu">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
         </button>
@@ -123,6 +126,22 @@
         <button type="button" id="deleteBtn" class="danger-btn">Delete book</button>
       </div>
     </form>
+  </dialog>
+
+  <!-- Stats -->
+  <dialog id="statsDialog" class="sheet">
+    <div class="sheet-head">
+      <h2 class="left">Reading stats</h2>
+      <button class="text-btn" data-close>Done</button>
+    </div>
+    <div class="form-body">
+      <div id="statTiles" class="tiles"></div>
+      <div class="seg stats-seg" role="radiogroup" aria-label="View">
+        <label><input type="radio" name="statsView" value="days" checked><span>By day</span></label>
+        <label><input type="radio" name="statsView" value="sessions"><span>By session</span></label>
+      </div>
+      <div id="statsBody"></div>
+    </div>
   </dialog>
 
   <!-- Quick progress update -->
