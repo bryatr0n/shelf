@@ -82,11 +82,16 @@ function cardHTML(b) {
   if (b.status === 'reading') {
     const pct = b.pages ? Math.min(100, Math.round(((b.progress || 0) / b.pages) * 100)) : 0;
     extra = `<span class="progress"><span style="width:${pct}%"></span></span>
-      <span class="meta">${b.pages ? `Page ${b.progress || 0} of ${b.pages} · ${pct}%` : `Page ${b.progress || 0}`}</span>`;
+      <span class="progress-row">
+        <span class="meta">${b.pages ? `Page ${b.progress || 0} of ${b.pages} · ${pct}%` : `Page ${b.progress || 0}`}</span>
+        <button type="button" class="update-btn" aria-label="Update page for ${esc(b.title)}">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h10a1 1 0 0 1 1 1v17l-6-4-6 4V4a1 1 0 0 1 1-1z"/></svg>Update
+        </button>
+      </span>`;
   } else if ((b.status === 'finished' || b.status === 'dnf') && b.rating) {
     extra = `<span class="stars" aria-label="${b.rating} stars">${'★'.repeat(b.rating)}</span>`;
   }
-  return `<button class="card" data-id="${esc(b.id)}">
+  return `<div class="card" role="button" tabindex="0" data-id="${esc(b.id)}">
     ${coverHTML(b, 'sm')}
     <span class="info">
       <span class="title">${esc(b.title)}</span>
@@ -94,7 +99,7 @@ function cardHTML(b) {
       ${meta ? `<span class="meta">${esc(meta)}</span>` : ''}
       ${extra}
     </span>
-  </button>`;
+  </div>`;
 }
 
 const EMPTY = {
@@ -149,8 +154,80 @@ $('#list').addEventListener('click', (e) => {
   const card = e.target.closest('.card');
   if (!card) return;
   const b = books.find((x) => x.id === card.dataset.id);
-  if (b) openForm(b, false);
+  if (!b) return;
+  if (e.target.closest('.update-btn')) openProgress(b);
+  else openForm(b, false);
 });
+$('#list').addEventListener('keydown', (e) => {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('card')) {
+    e.preventDefault();
+    e.target.click();
+  }
+});
+
+/* ---------- Quick progress update ---------- */
+const pgForm = $('#progressForm');
+let pgBook = null;
+
+function pgRefresh() {
+  const p = toInt(pgForm.elements.page.value);
+  const total = pgBook.pages;
+  const pct = p != null && total ? Math.min(100, Math.round((p / total) * 100)) : null;
+  const delta = p != null ? p - (pgBook.progress || 0) : 0;
+  $('#pgPct').textContent = [
+    pct != null ? `${pct}%` : '',
+    delta > 0 ? `+${delta} page${delta === 1 ? '' : 's'}` : '',
+  ].filter(Boolean).join(' · ') || ' ';
+  $('#pgFinish').hidden = !(total && p != null && p >= total);
+}
+
+function openProgress(b) {
+  pgBook = b;
+  $('#pgTitle').textContent = b.title;
+  $('#pgOf').textContent = b.pages ? `of ${b.pages}` : '';
+  pgForm.elements.page.value = b.progress || '';
+  pgForm.elements.page.max = b.pages || '';
+  pgRefresh();
+  $('#progressDialog').showModal();
+  // Focus synchronously (still inside the tap) so iOS opens the number keyboard.
+  pgForm.elements.page.focus();
+  pgForm.elements.page.select();
+}
+
+function saveProgress(finish) {
+  const b = books.find((x) => x.id === pgBook.id);
+  if (!b) return;
+  let page = toInt(pgForm.elements.page.value);
+  if (page == null || page < 0) { pgForm.elements.page.focus(); return; }
+  if (b.pages) page = Math.min(page, b.pages);
+  const today = localToday();
+  b.progress = page;
+  // Keep one entry per day, for future reading stats.
+  b.progressLog = (b.progressLog || []).filter((x) => x.d !== today);
+  b.progressLog.push({ d: today, p: page });
+  if (finish) {
+    b.status = 'finished';
+    b.finishedAt = b.finishedAt || today;
+    b.startedAt = b.startedAt || today;
+  }
+  b.updatedAt = new Date().toISOString();
+  persist();
+  window.Sync?.changed(b.id);
+  $('#progressDialog').close();
+  if (finish) {
+    tab = 'finished';
+    render();
+    openForm(b, false); // so a rating can be added straight away
+    toast('Finished! Add a rating?');
+  } else {
+    render();
+    toast(b.pages ? `Page ${page} · ${Math.round((page / b.pages) * 100)}%` : `Page ${page}`);
+  }
+}
+
+pgForm.addEventListener('input', pgRefresh);
+pgForm.addEventListener('submit', (e) => { e.preventDefault(); saveProgress(false); });
+$('#pgFinish').addEventListener('click', () => saveProgress(true));
 
 /* ---------- Book search (Google Books + Open Library) ---------- */
 const norm = (s) => String(s || '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '')

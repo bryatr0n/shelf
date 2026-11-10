@@ -125,6 +125,27 @@
     </form>
   </dialog>
 
+  <!-- Quick progress update -->
+  <dialog id="progressDialog" class="sheet small">
+    <form id="progressForm" novalidate>
+      <div class="sheet-head">
+        <button type="button" class="text-btn" data-close>Cancel</button>
+        <h2>Update progress</h2>
+        <button type="submit" class="text-btn strong">Save</button>
+      </div>
+      <div class="form-body pg-body">
+        <p id="pgTitle" class="pg-title"></p>
+        <div class="pg-row">
+          <span class="pg-label">Page</span>
+          <input name="page" type="number" inputmode="numeric" min="0" enterkeyhint="done" aria-label="Current page">
+          <span id="pgOf" class="pg-of"></span>
+        </div>
+        <p id="pgPct" class="pg-pct">&nbsp;</p>
+        <button type="button" id="pgFinish" class="menu-btn center strong" hidden>Mark as finished</button>
+      </div>
+    </form>
+  </dialog>
+
   <!-- Menu -->
   <dialog id="menuDialog" class="sheet small">
     <div class="sheet-head">
