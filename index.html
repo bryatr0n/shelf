@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Shelf</title>
+  <meta name="description" content="A minimal personal reading tracker.">
+  <meta name="theme-color" content="#f7f4ee" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#161513" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Shelf">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <header class="top">
+      <h1>Shelf</h1>
+      <div class="top-actions">
+        <button id="menuBtn" class="icon-btn" aria-label="Menu" title="Menu">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+        </button>
+        <button id="addBtn" class="icon-btn primary" aria-label="Add a book" title="Add a book">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke-width="2.2" stroke-linecap="round" fill="none" stroke="currentColor"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <nav class="tabs" id="tabs" aria-label="Shelves">
+      <button data-status="reading">Reading <span class="count"></span></button>
+      <button data-status="want">Want to read <span class="count"></span></button>
+      <button data-status="finished">Finished <span class="count"></span></button>
+      <button data-status="dnf">DNF <span class="count"></span></button>
+    </nav>
+
+    <main id="list" class="list"></main>
+  </div>
+
+  <!-- Search -->
+  <dialog id="searchDialog" class="sheet">
+    <div class="sheet-head">
+      <form id="searchForm" class="search-bar" role="search">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="m16 16 4.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <input id="searchInput" type="search" placeholder="Title, author, or ISBN" autocomplete="off" enterkeyhint="search" aria-label="Search books">
+      </form>
+      <button class="text-btn" data-close>Cancel</button>
+    </div>
+    <div id="results" class="results"></div>
+    <div class="sheet-foot">
+      <button id="manualBtn" class="text-btn">Can't find it? Add manually</button>
+    </div>
+  </dialog>
+
+  <!-- Add / edit book -->
+  <dialog id="bookDialog" class="sheet">
+    <form id="bookForm" novalidate>
+      <div class="sheet-head">
+        <button type="button" class="text-btn" data-close>Cancel</button>
+        <h2 id="bookFormTitle">Add book</h2>
+        <button type="submit" class="text-btn strong">Save</button>
+      </div>
+
+      <div class="form-body">
+        <div class="form-hero">
+          <div id="coverPreview" class="cover-wrap"></div>
+          <div class="hero-fields">
+            <label>Title<input name="title" required autocomplete="off"></label>
+            <label>Author(s)<input name="authors" autocomplete="off"></label>
+          </div>
+        </div>
+
+        <section class="group">
+          <h3 class="group-title">Tracking</h3>
+          <div class="seg" id="statusSeg" role="radiogroup" aria-label="Status">
+            <label><input type="radio" name="status" value="want"><span>Want</span></label>
+            <label><input type="radio" name="status" value="reading"><span>Reading</span></label>
+            <label><input type="radio" name="status" value="finished"><span>Finished</span></label>
+            <label><input type="radio" name="status" value="dnf"><span>DNF</span></label>
+          </div>
+          <div class="row" data-for="reading dnf">
+            <label>Current page<input name="progress" type="number" inputmode="numeric" min="0"></label>
+            <label class="pct-label">Progress<output id="pctOut">–</output></label>
+          </div>
+          <div class="row">
+            <label data-for="reading finished dnf">Started<input name="startedAt" type="date"></label>
+            <label data-for="finished dnf">Finished<input name="finishedAt" type="date"></label>
+          </div>
+          <div data-for="finished dnf" class="rating-row">
+            <span class="mini-label">Rating</span>
+            <div id="stars" class="stars-input" role="radiogroup" aria-label="Rating">
+              <button type="button" data-v="1" aria-label="1 star">★</button>
+              <button type="button" data-v="2" aria-label="2 stars">★</button>
+              <button type="button" data-v="3" aria-label="3 stars">★</button>
+              <button type="button" data-v="4" aria-label="4 stars">★</button>
+              <button type="button" data-v="5" aria-label="5 stars">★</button>
+            </div>
+            <input type="hidden" name="rating">
+          </div>
+          <label>Notes<textarea name="notes" rows="3"></textarea></label>
+        </section>
+
+        <section class="group">
+          <h3 class="group-title">Details</h3>
+          <div class="row">
+            <label>Year<input name="year" type="number" inputmode="numeric"></label>
+            <label>Pages<input name="pages" type="number" inputmode="numeric" min="0"></label>
+          </div>
+          <label>Subtitle<input name="subtitle" autocomplete="off"></label>
+          <label>Series<input name="series" autocomplete="off" placeholder="e.g. Stormlight Archive #1"></label>
+          <div class="row">
+            <label>Publisher<input name="publisher" autocomplete="off"></label>
+            <label>ISBN<input name="isbn" autocomplete="off" inputmode="numeric"></label>
+          </div>
+          <label>Genres<input name="genres" autocomplete="off"></label>
+          <label>Cover image URL<input name="cover" type="url" autocomplete="off" inputmode="url"></label>
+          <label>Description<textarea name="description" rows="5"></textarea></label>
+        </section>
+
+        <button type="button" id="deleteBtn" class="danger-btn">Delete book</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Menu -->
+  <dialog id="menuDialog" class="sheet small">
+    <div class="sheet-head">
+      <h2>Library</h2>
+      <button class="text-btn" data-close>Done</button>
+    </div>
+    <div class="form-body">
+      <p id="stats" class="stats"></p>
+      <h3 class="section-title">Sync</h3>
+      <div id="syncBox"></div>
+      <h3 class="section-title">Backup</h3>
+      <button id="exportBtn" class="menu-btn">Export backup (.json)</button>
+      <label class="menu-btn file">Import backup<input id="importInput" type="file" accept="application/json,.json" hidden></label>
+      <p class="hint left">A copy of your library as a file, just in case.</p>
+      <h3 class="section-title">Search</h3>
+      <label>Google Books API key (optional)
+        <input id="googleKey" autocomplete="off" spellcheck="false" placeholder="Improves search results">
+      </label>
+      <p class="hint left">Without a key, search uses Open Library plus Google's shared free quota, which sometimes runs out.</p>
+    </div>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+  <script src="sync.js"></script>
+</body>
+</html>
