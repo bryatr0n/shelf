@@ -235,7 +235,11 @@ input[type=date] { min-height: 40px; }
 
 /* Reading card: quick update */
 .card { cursor: pointer; }
-.card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Keyboard focus ring, drawn inside the card so the sticky tabs can't clip it.
+   Hidden for touch/mouse, where it only appears when a closed dialog returns focus. */
+.card:focus { outline: none; }
+.card:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.pointer .card:focus-visible { outline: none; }
 .progress-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .update-btn {
   flex: none; display: inline-flex; align-items: center; gap: 5px;

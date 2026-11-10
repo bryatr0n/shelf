@@ -633,6 +633,12 @@ $$('dialog').forEach((dlg) => {
   });
 });
 
+// Remember whether the last interaction was touch/mouse or keyboard (for focus rings).
+document.addEventListener('pointerdown', () => document.documentElement.classList.add('pointer'), true);
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Tab') document.documentElement.classList.remove('pointer');
+}, true);
+
 /* ---------- Boot ---------- */
 render();
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
